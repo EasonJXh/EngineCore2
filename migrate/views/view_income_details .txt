@@ -1,0 +1,12 @@
+create or replace view view_income_details as
+with basedata as
+ (select *
+    from (select t.*, row_number() over(partition by t.fundcode order by t.fundcode,t.recentdate desc) seq
+            from (select sum(t.cumincome) amount, t.recentdate,t.fundcode
+                    from cumincome_records t
+                   group by t.recentdate,t.fundcode) t))
+select t.fundcode,t.recentdate, (t.amount - s.amount) value
+  from basedata t, basedata s
+ where t.seq = s.seq - 1
+ and t.fundcode=s.fundcode
+ order by t.fundcode,t.recentdate;

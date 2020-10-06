@@ -1,0 +1,3 @@
+結束運行時間：2020/6/8 下午 08:10:36，結果：失敗，備註：读取配置异常：找不到檔案 'E:\开发实例\EngineCore\定時執行任務小程序\ControlCenterApp\ControlCenterApp\bin\Debug\App.config'。
+結束運行時間：2020/6/8 下午 08:11:19，結果：失敗，備註：读取配置异常：找不到檔案 'E:\开发实例\EngineCore\定時執行任務小程序\ControlCenterApp\ControlCenterApp\bin\Debug\App.config'。
+結束運行時間：2020/6/8 下午 08:11:49，結果：失敗，備註：读取配置异常：找不到檔案 'E:\开发实例\EngineCore\定時執行任務小程序\ControlCenterApp\ControlCenterApp\bin\Debug\App.config'。

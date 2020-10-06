@@ -1,0 +1,73 @@
+-- Create table
+create table MANAGERINFO
+(
+  manager    VARCHAR2(16) not null,
+  country    VARCHAR2(16),
+  nation     VARCHAR2(32),
+  sex        VARCHAR2(4),
+  borndate   DATE,
+  education  VARCHAR2(6),
+  workdate   DATE,
+  memo       VARCHAR2(128),
+  createdate DATE default sysdate,
+  creator    VARCHAR2(8) default 'Eason',
+  amount     NUMBER,
+  returnrate NUMBER,
+  imgpath    VARCHAR2(64)
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 8K
+    minextents 1
+    maxextents unlimited
+  );
+-- Add comments to the table 
+comment on table MANAGERINFO
+  is '基金?理信息表';
+-- Add comments to the columns 
+comment on column MANAGERINFO.manager
+  is '基金?理';
+comment on column MANAGERINFO.country
+  is '?家';
+comment on column MANAGERINFO.nation
+  is '民族';
+comment on column MANAGERINFO.sex
+  is '性?';
+comment on column MANAGERINFO.borndate
+  is '出生日期';
+comment on column MANAGERINFO.education
+  is '??';
+comment on column MANAGERINFO.workdate
+  is '??日期';
+comment on column MANAGERINFO.memo
+  is '投?策略';
+comment on column MANAGERINFO.createdate
+  is '???建日期';
+comment on column MANAGERINFO.creator
+  is '???建人';
+comment on column MANAGERINFO.amount
+  is '管理基金?量';
+comment on column MANAGERINFO.returnrate
+  is '最高回?率';
+comment on column MANAGERINFO.imgpath
+  is '照片路徑';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table MANAGERINFO
+  add constraint MANAGERINFO_PK primary key (MANAGER)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

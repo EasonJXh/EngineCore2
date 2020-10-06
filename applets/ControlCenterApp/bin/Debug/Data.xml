@@ -1,0 +1,195 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Data</name>
+    </assembly>
+    <members>
+        <member name="M:Data.Dapper.SqlMapper.Execute(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            Execute parameterized SQL 
+            </summary>
+            <returns>Number of rows affected</returns>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.Query(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Boolean,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            Return a list of dynamic objects, reader is closed after the call
+            </summary>
+        </member>
+        <!-- 对于成员“M:Data.Dapper.SqlMapper.Query``1(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Boolean,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})”忽略有格式错误的 XML 注释 -->
+        <member name="M:Data.Dapper.SqlMapper.QueryMultiple(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            Execute a command that returns multiple result sets, and access each in turn
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.QueryInternal``1(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            Return a typed list of objects, reader is closed after the call
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.Query``3(System.Data.IDbConnection,System.String,System.Func{``0,``1,``2},System.Object,System.Data.IDbTransaction,System.Boolean,System.String,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            Maps a query to objects
+            </summary>
+            <typeparam name="T">The return type</typeparam>
+            <typeparam name="U"></typeparam>
+            <param name="cnn"></param>
+            <param name="sql"></param>
+            <param name="map"></param>
+            <param name="param"></param>
+            <param name="transaction"></param>
+            <param name="buffered"></param>
+            <param name="splitOn">The Field we should split and read the second object from (default: id)</param>
+            <param name="commandTimeout">Number of seconds before command execution timeout</param>
+            <returns></returns>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.ExecuteScalar(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Boolean,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            Execute parameterized SQL that selects a single value.
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.Table(System.Data.IDbConnection,System.String,System.Object,System.Data.IDbTransaction,System.Boolean,System.Nullable{System.Int32},System.Nullable{System.Data.CommandType})">
+            <summary>
+            返回Data
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.IDataReaderToDataTable(System.Data.IDataReader)">
+            <summary>
+            把idatareader轉換成datatable
+            </summary>
+            <param name="reader"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Data.Dapper.SqlMapper.Link`2">
+            <summary>
+            This is a micro-cache; suitable when the number of terms is controllable (a few hundred, for example),
+            and strictly append-only; you cannot change existing values. All key matches are on **REFERENCE**
+            equality. The type is fully thread-safe.
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.SqlMapper.GridReader.Read``1">
+            <summary>
+            Read the next grid of results
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.DynamicParameters.AddDynamicParams(System.Object)">
+            <summary>
+            Append a whole object full of params to the dynamic
+            EG: AddParams(new {A = 1, B = 2}) // will add property A and B to the dynamic
+            </summary>
+            <param name="param"></param>
+        </member>
+        <member name="T:Data.Dapper.DapperHelper">
+            <summary>
+            数据访问基础类(基于Oracle)
+            </summary>
+        </member>
+        <member name="F:Data.Dapper.DapperHelper._connStringName">
+            <summary>
+            数据库连接字符串的名字
+            </summary>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.ExecuteSql(System.String,System.Object,Core.ConnStringNameEnum)">
+            <summary>
+            執行一條DML（可以不用事物），有超過一條DML操作的請用ExecuteSqls方法
+            </summary>
+            <param name="cmdText">sql語句</param>
+            <param name="param">參數</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>返回是否成功</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.ExecuteSqls(System.String[],System.Object[],Core.ConnStringNameEnum)">
+            <summary>
+            批量執行DML SQL語句并實現事務
+            </summary>
+            <param name="sqlArray">sql數組</param>
+            <param name="paramArray">參數數組(跟sql對應)</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>是否執行成功</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.ExecuteSqls``1(System.String,System.Collections.Generic.List{``0},Core.ConnStringNameEnum)">
+            <summary>
+            批量執行DML SQL語句并實現事務（一條sql語句的批量執行）
+            </summary>
+            <param name="sql">一條sql</param>
+            <param name="list">參數數組(跟sql對應)</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>是否執行成功</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.GetSingle(System.String,System.Object,Core.ConnStringNameEnum)">
+            <summary>
+            查詢第一行第一列的數據（返回object,其他類型需自己手動轉換）
+            </summary>
+            <param name="cmdText">sql</param>
+            <param name="param">參數</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>返回第一行第一列的數據</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.QuerySingle``1(System.String,System.Object,Core.ConnStringNameEnum)">
+            <summary>
+            執行查詢SQL
+            </summary>
+            <typeparam name="T">實體</typeparam>
+            <param name="cmdText">sql</param>
+            <param name="param">參數</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>T對應的實體</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.GetList``1(System.String,System.Object,Core.ConnStringNameEnum)">
+            <summary>
+            執行查詢SQL
+            </summary>
+            <typeparam name="T">實體</typeparam>
+            <param name="cmdText">sql</param>
+            <param name="param">參數</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>T對應的集合</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.GetPage``1(System.String,System.Int32,System.Int32,System.Object,Core.ConnStringNameEnum)">
+            <summary>
+            分頁
+            </summary>
+            <typeparam name="T">實體</typeparam>
+            <param name="cmdText">sql</param>
+            <param name="pageIndex">第幾頁</param>
+            <param name="pageSize">一頁顯示多條</param>
+            <param name="param">參數</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>數據集合，總數</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.ExecuteStoredProcedure(System.String,System.Collections.Generic.Dictionary{System.String,System.Object},System.Collections.Generic.Dictionary{System.String,System.Object},Core.ConnStringNameEnum)">
+            <summary>
+            調用存儲過程（若要判斷存儲過程執行成功必須是該方法執行成功同時存儲過程執行成功）
+            </summary>
+            <param name="storeName">存儲過程名稱</param>
+            <param name="dicIn">輸入參數</param>
+            <param name="dicOut">輸出參數（約束：有一個參數表示存儲過程執行是否成功）</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>false:僅是調用該方法失敗 true:僅是調用該方法成功 若要判斷存儲過程執行成功必須是該方法執行成功同時存儲過程執行成功</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.ExecuteStoredProcedure``1(System.String,System.Collections.Generic.Dictionary{System.String,System.Object},System.String,Core.ConnStringNameEnum)">
+            <summary>
+            調用存儲過程，返回結果集
+            </summary>
+            <typeparam name="T">實體</typeparam>
+            <param name="storeName">存儲過程名稱</param>
+            <param name="dicIn">輸入參數</param>
+            <param name="cursorResultName">遊標的名稱</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>結果集</returns>
+        </member>
+        <member name="M:Data.Dapper.DapperHelper.Table(System.String,System.Object,Core.ConnStringNameEnum)">
+            <summary>
+            查詢，返回Table.
+            </summary>
+            <param name="cmdText">sql語句</param>
+            <param name="param">參數</param>
+            <param name="connStringName">数据库连接字符串的名字</param>
+            <returns>Table</returns>
+        </member>
+        <member name="P:Data.Dapper.DapperHelper.connectionString">
+            <summary>
+            鏈接字符串，抓取Web.Config的ConnectionString
+            </summary>
+        </member>
+    </members>
+</doc>

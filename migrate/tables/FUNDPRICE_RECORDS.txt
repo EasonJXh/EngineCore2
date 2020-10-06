@@ -1,0 +1,76 @@
+-- Create table
+create table FUNDPRICE_RECORDS
+(
+  fundcode   VARCHAR2(16) not null,
+  price      VARCHAR2(32) not null,
+  rdate      DATE not null,
+  frank      NUMBER,
+  isover     VARCHAR2(4),
+  mposition  VARCHAR2(32),
+  manager    VARCHAR2(8),
+  createdate DATE default SYSDATE,
+  creator    VARCHAR2(8) default 'sys',
+  memo       VARCHAR2(128),
+  grownrate  VARCHAR2(16),
+  updatedate DATE default SYSDATE,
+  canbuy     VARCHAR2(32),
+  cansale    VARCHAR2(32)
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+-- Add comments to the table 
+comment on table FUNDPRICE_RECORDS
+  is '基金?入?位?值';
+-- Add comments to the columns 
+comment on column FUNDPRICE_RECORDS.fundcode
+  is '基金代?';
+comment on column FUNDPRICE_RECORDS.price
+  is '收盤價格或點數';
+comment on column FUNDPRICE_RECORDS.rdate
+  is '交易日期';
+comment on column FUNDPRICE_RECORDS.frank
+  is '?天同?排行';
+comment on column FUNDPRICE_RECORDS.isover
+  is '?日?幅高于大?否';
+comment on column FUNDPRICE_RECORDS.mposition
+  is '?日持?最高';
+comment on column FUNDPRICE_RECORDS.manager
+  is '?日基金?理';
+comment on column FUNDPRICE_RECORDS.createdate
+  is '???建?料';
+comment on column FUNDPRICE_RECORDS.creator
+  is '???建人';
+comment on column FUNDPRICE_RECORDS.memo
+  is '?日公告?述';
+comment on column FUNDPRICE_RECORDS.grownrate
+  is '日增長率';
+comment on column FUNDPRICE_RECORDS.updatedate
+  is '更新日期';
+comment on column FUNDPRICE_RECORDS.canbuy
+  is '是否可以申購';
+comment on column FUNDPRICE_RECORDS.cansale
+  is '是否可以賣出';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table FUNDPRICE_RECORDS
+  add constraint FUNDPRICE_RECORDS_PK primary key (FUNDCODE, RDATE, PRICE)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

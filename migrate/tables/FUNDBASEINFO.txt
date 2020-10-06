@@ -1,0 +1,93 @@
+-- Create table
+create table FUNDBASEINFO
+(
+  fundcode   VARCHAR2(16) not null,
+  name       VARCHAR2(128),
+  manager    VARCHAR2(16) not null,
+  escrow     VARCHAR2(32),
+  founddate  DATE,
+  ftype      VARCHAR2(16),
+  industry   VARCHAR2(16),
+  assetsize  NUMBER,
+  market     VARCHAR2(16),
+  flevel     NUMBER,
+  isvalid    VARCHAR2(2) default '1',
+  createdate DATE default SYSDATE,
+  creator    VARCHAR2(16) default 'Eason',
+  buyrate    NUMBER,
+  shortname  VARCHAR2(32)
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 8K
+    minextents 1
+    maxextents unlimited
+  );
+-- Add comments to the table 
+comment on table FUNDBASEINFO
+  is '基金基本信息??表';
+-- Add comments to the columns 
+comment on column FUNDBASEINFO.fundcode
+  is '基金代?';
+comment on column FUNDBASEINFO.name
+  is '名?';
+comment on column FUNDBASEINFO.manager
+  is '基金?理';
+comment on column FUNDBASEINFO.escrow
+  is '基金托管';
+comment on column FUNDBASEINFO.founddate
+  is '基金?建日期';
+comment on column FUNDBASEINFO.ftype
+  is '類型';
+comment on column FUNDBASEINFO.industry
+  is '行?';
+comment on column FUNDBASEINFO.assetsize
+  is '???模';
+comment on column FUNDBASEINFO.market
+  is '??市?';
+comment on column FUNDBASEINFO.flevel
+  is '机构??';
+comment on column FUNDBASEINFO.isvalid
+  is '??是否有效';
+comment on column FUNDBASEINFO.createdate
+  is '?建日期';
+comment on column FUNDBASEINFO.creator
+  is '???建人';
+comment on column FUNDBASEINFO.buyrate
+  is '?入?率';
+comment on column FUNDBASEINFO.shortname
+  is '簡稱';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table FUNDBASEINFO
+  add constraint FUNDBASEINFO_PK primary key (FUNDCODE, MANAGER)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+alter table FUNDBASEINFO
+  add constraint FUNDBASEINFO_PK1 unique (NAME)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

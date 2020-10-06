@@ -1,0 +1,8 @@
+-- Create sequence 
+create sequence SEQ_PK
+minvalue 10000
+maxvalue 9999999999999999999999999999
+start with 218921
+increment by 1
+cache 20
+order;

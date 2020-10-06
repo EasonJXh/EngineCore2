@@ -1,0 +1,55 @@
+-- Create table
+create table CALENDAR
+(
+  nowork_date DATE not null,
+  htype       NUMBER,
+  name        VARCHAR2(64),
+  memo        VARCHAR2(128),
+  createdate  DATE default SYSDATE,
+  operator    VARCHAR2(32),
+  updatedate  DATE default SYSDATE
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 8K
+    minextents 1
+    maxextents unlimited
+  );
+-- Add comments to the table 
+comment on table CALENDAR
+  is '行事曆資料維護表';
+-- Add comments to the columns 
+comment on column CALENDAR.nowork_date
+  is '非工作日期';
+comment on column CALENDAR.htype
+  is '節假日類型';
+comment on column CALENDAR.name
+  is '節假日名稱';
+comment on column CALENDAR.memo
+  is '非工作日說明';
+comment on column CALENDAR.createdate
+  is '記錄創建日期';
+comment on column CALENDAR.operator
+  is '最後一次記錄操作人';
+comment on column CALENDAR.updatedate
+  is '記錄更新時間';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table CALENDAR
+  add constraint CALENDAR_PK primary key (NOWORK_DATE)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

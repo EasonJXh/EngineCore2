@@ -1,0 +1,27 @@
+create or replace function GET_EACHMONTH_AMOUNT(INDATE IN VARCHAR) return number is
+  vresult number;
+  tempdate date;
+  /***********
+  creater:jxh
+  date:2020/8/13
+  function:求每月平均投資值
+  *************/
+begin
+  
+  if INDATE is null then
+    tempdate:=trunc(sysdate);
+  else
+    tempdate:=to_date(INDATE,'yyyy/mm/dd');
+  end if;
+  
+  select round(avg(sum(t.amount)),2) into vresult from investment_records t 
+  where t.otype=1
+  and t.trasdate<=tempdate
+  group by to_char(t.trasdate,'yyyymm');   
+  
+  return vresult;
+  
+  exception 
+    when others then
+      return '7000';
+end GET_EACHMONTH_AMOUNT;

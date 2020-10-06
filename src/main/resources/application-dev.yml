@@ -1,0 +1,13 @@
+# 數據庫配置
+spring:
+  datasource:
+    driver-class-name: oracle.jdbc.OracleDriver
+    url: jdbc:oracle:thin:@localhost:1521/jxhdata
+    username: JXH
+    password: Jxh.123456
+
+server:
+  servlet:
+    session:
+      cookie:
+        http-only: false

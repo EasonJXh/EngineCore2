@@ -1,0 +1,94 @@
+-- Create table
+create table INVESTMENT_RECORDS
+(
+  id         VARCHAR2(32) default sys_guid() not null,
+  trasdate   DATE,
+  operator   VARCHAR2(16),
+  otype      VARCHAR2(2),
+  fundcode   VARCHAR2(16),
+  amount     NUMBER,
+  platform   VARCHAR2(16),
+  events     VARCHAR2(128),
+  createdate DATE default SYSDATE,
+  updatedate DATE default SYSDATE,
+  charge     NUMBER
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 16K
+    next 8K
+    minextents 1
+    maxextents unlimited
+  );
+-- Add comments to the table 
+comment on table INVESTMENT_RECORDS
+  is '金融投???';
+-- Add comments to the columns 
+comment on column INVESTMENT_RECORDS.id
+  is '??唯一???';
+comment on column INVESTMENT_RECORDS.trasdate
+  is '?入日期';
+comment on column INVESTMENT_RECORDS.operator
+  is '操作人';
+comment on column INVESTMENT_RECORDS.otype
+  is '操作?型';
+comment on column INVESTMENT_RECORDS.fundcode
+  is '基金代?';
+comment on column INVESTMENT_RECORDS.amount
+  is '?入金?';
+comment on column INVESTMENT_RECORDS.platform
+  is '操作平台';
+comment on column INVESTMENT_RECORDS.events
+  is '?生事件';
+comment on column INVESTMENT_RECORDS.createdate
+  is '???建日期';
+comment on column INVESTMENT_RECORDS.updatedate
+  is '記錄更新日期';
+comment on column INVESTMENT_RECORDS.charge
+  is '手續費';
+-- Create/Recreate indexes 
+create index INVESTMENT_RECORDS_INDEX on INVESTMENT_RECORDS (FUNDCODE)
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table INVESTMENT_RECORDS
+  add constraint INVESTMENT_RECORDS_PK primary key (ID)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+alter table INVESTMENT_RECORDS
+  add constraint INVESTMENT_RECORDS_PK1 unique (TRASDATE)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

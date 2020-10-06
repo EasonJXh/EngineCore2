@@ -1,0 +1,24 @@
+create or replace view view_nowdays_invest as
+with eachdata as
+ (select s.fundcode,
+         s.rdate,
+         to_char(s.rdate, 'dy'),
+         nvl(t.amount, 0) amount,
+         case
+           when t.fundcode = s.fundcode then
+            'Y'
+           else
+            'N'
+         end ishold
+    from investment_records t, fundprice_records s
+   where s.fundcode = t.fundcode(+)
+     and s.rdate = trunc(t.trasdate(+))
+     and s.rdate >= trunc(sysdate, 'mm')
+     and to_char(s.rdate, 'dy') not in ('星期六', '星期日'))
+select "FUNDCODE","ISHOLD","NOINVOLEDAYS","INED"
+  from (select distinct fundcode,
+                        ishold,
+                        count(0) over(partition by fundcode, ishold) noinvoledays,
+                        sum(amount) over(partition by fundcode) ined
+          from eachdata)
+ where ishold <> 'Y';

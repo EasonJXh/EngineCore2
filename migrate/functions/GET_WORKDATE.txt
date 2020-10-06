@@ -1,0 +1,41 @@
+create or replace function GET_WORKDATE(TDATE IN VARCHAR) return date is
+  /******
+  Creater:Eason
+  Date:2020/8/4
+  Memo:尋找最近的一天工作日
+
+  ********/
+  DRESULT date;
+  NUM number;
+  TNUM number;
+  TEMPDATE date;
+  BACKNUM number;
+begin
+  if TDATE is null then
+    TEMPDATE:=trunc(sysdate);
+  else
+    TEMPDATE:=to_date(TDATE,'yyyy/mm/dd');
+  end if;
+  
+  select to_char(TEMPDATE,'d')-1 into num from dual;
+  /*1.剔除週六週日*/
+  if num=6 then
+    BACKNUM:=1;
+  elsif num=0 then
+    BACKNUM:=2;
+    /*2.剔除節假日*/
+  else
+    select sum(t.htype) into TNUM from calendar t where t.nowork_date=TEMPDATE;
+    if TNUM <>0 then
+      select count(0) into BACKNUM from calendar t where t.nowork_date<=TEMPDATE and t.htype=TNUM;
+    else
+      BACKNUM:=0;
+    end if;
+  end if;
+  
+  DRESULT:=TEMPDATE-BACKNUM;
+  return DRESULT;
+ exception
+   when others then
+     return trunc(sysdate);
+end GET_WORKDATE;

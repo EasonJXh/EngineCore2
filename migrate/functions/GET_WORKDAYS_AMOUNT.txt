@@ -1,0 +1,113 @@
+create or replace function GET_WORKDAYS_AMOUNT(TDATE IN VARCHAR,
+                                               TTYPE IN NUMBER)
+  return number is
+  /********
+  Creater:Eason
+  Date:2020/8/4
+  Memo:多功能求各個業務指標
+  **********/
+  NRESULT   number;
+  MAXDAYS   number;
+  AMOUNT    number;
+  DAYS      number;
+  TEMPDATE  date;
+  STARTDATE DATE;
+  ENDDATE   DATE;
+  NUM       NUMBER;
+  INCOME NUMBER;
+begin
+
+  if TDATE is null then
+    TEMPDATE := trunc(sysdate);
+  else
+    TEMPDATE := to_date(TDATE, 'yyyy/mm/dd');
+  end if;
+
+  STARTDATE := to_date(to_char(TEMPDATE, 'yyyy/mm/') || '01', 'yyyy/mm/dd');
+  ENDDATE   := trunc(last_day(TEMPDATE));
+  NUM       := ENDDATE - STARTDATE + 1;
+
+  if TTYPE = 0 or TTYPE = 1 or TTYPE=4 then
+    select count(*)
+      into MAXDAYS
+      from (select distinct get_workdate(realdate) workdate
+              from (select to_char(STARTDATE + level - 1, 'yyyy/mm/dd') realdate
+                      from dual
+                    connect by level <= NUM))
+     where workdate >= STARTDATE;
+  
+    with basedata as
+     (select *
+        from (select distinct get_workdate(realdate) workdate
+                from (select to_char(STARTDATE + level - 1, 'yyyy/mm/dd') realdate
+                        from dual
+                      connect by level <= NUM))
+       where workdate >= STARTDATE),
+    
+    buydate as
+     (select t.trasdate, sum(t.amount) amount
+        from investment_records t
+       where to_char(t.trasdate, 'yyyymm') = to_char(STARTDATE, 'yyyymm')
+       group by t.trasdate)
+    
+    select GET_EACHMONTH_AMOUNT(null) - nvl(sum(amount), 0) amount, MAXDAYS - count(0) days
+      into AMOUNT, DAYS
+      from (select t.workdate,
+                   to_number(nvl(s.amount, 0)) amount,
+                   count(0) over() allnum
+              from basedata t, buydate s
+             where t.workdate = s.trasdate(+))
+     where amount <> 0;
+  --DAYS
+    if TTYPE = 0 then
+      NRESULT := DAYS;
+      --AMOUNS
+    elsif TTYPE=1 then
+      NRESULT := AMOUNT;
+    else
+      NRESULT := MAXDAYS;
+    end if;
+    --ALLMOUNTS
+  elsif TTYPE = 2 then
+    select nvl(sum(t.cumincome), 0)
+      into NRESULT
+      from cumincome_records t
+     where t.recentdate = get_workdate(to_char(TEMPDATE, 'yyyy/mm/dd'));
+    --INCREAMEAMOUNTS
+  elsif TTYPE=3 or TTYPE=6 then
+    with basedata as
+     (select *
+        from (select t.*, row_number() over(order by t.recentdate desc) seq
+                from (select sum(t.cumincome) amount, t.recentdate
+                        from cumincome_records t
+                       where t.recentdate <= TEMPDATE
+                       group by t.recentdate) t)
+       where seq <= 2)
+    select (t.amount - s.amount)
+      into INCOME
+      from basedata t, basedata s
+     where t.seq = s.seq - 1;
+     
+     select nvl(sum(t.cumincome), 0)
+      into AMOUNT
+      from cumincome_records t
+     where t.recentdate+1 = get_workdate(to_char(TEMPDATE, 'yyyy/mm/dd')); 
+     
+     if TTYPE=3 then
+       NRESULT:=INCOME;
+     else
+       NRESULT:=round(INCOME/AMOUNT*100,2);
+     end if;
+     
+  else
+     select nvl(sum(t.cost), 0)
+      into NRESULT
+      from cumincome_records t
+     where t.recentdate = get_workdate(to_char(TEMPDATE, 'yyyy/mm/dd'));    
+  end if;
+
+  return NRESULT;
+exception
+  when others then
+    return 0;
+end GET_WORKDAYS_AMOUNT;

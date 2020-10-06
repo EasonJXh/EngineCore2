@@ -1,0 +1,27 @@
+#服務器配置
+server:
+  port: 8080
+  servlet:    context-path: /investment    
+#log日誌配置
+logging:  level:
+    web: DEBUG    com: 
+      jxhspace: 
+       investment: 
+        analysis: 
+          dao: debug
+#mybatis
+mybatis-plus:  type-aliases-package: com.jxhspace.investment.analysis.entity
+  configuration-properties:    map-underscore-to-camel-case: true
+  mapper-locations: classpath:mappers/*/*.xml
+
+spring: 
+  profiles: 
+    active: dev    
+  jmx:
+    enabled: false
+  devtools:
+    add-properties: false
+    restart:
+      enabled: true
+      additional-paths: src/main/java      
+      exclude: WEB-INF/**

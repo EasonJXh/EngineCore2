@@ -1,0 +1,815 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace ="com.jxhspace.investment.analysis.dao.ChartDAO">
+
+<resultMap id="dataChart" type="com.jxhspace.investment.analysis.vo.AnalysisChartVO">
+  <id 	column="rdate" 	property="rdate" /> 
+  <result property="avgRate" column="avgrate"/>
+  <result property="minRate" column="minrate"/>
+  <result property="maxRate" column="maxrate"/>
+  <result property="minMed" column="minmed"/>
+  <result property="maxMed" column="maxmed"/>
+  <result property="minAvg" column="minavg"/>
+  <result property="maxAvg" column="maxavg"/>
+  <result property="trend" column="trend"/>
+</resultMap>
+
+<resultMap id="dataAdvice" type="com.jxhspace.investment.analysis.vo.AnalysisAdviceVO">
+  <id 	column="fundcode" 	property="fundcode" /> 
+  <result property="shortName" column="shortname"/>
+  <result property="industry" column="industry"/>
+  <result property="value" column="value"/>
+  <result property="assist" column="assist"/>
+</resultMap>
+
+<!-- Get AvgIncome Data -->
+<select id="getAvgIncome" resultType="com.jxhspace.investment.analysis.dto.FundinfoDTO">
+	select t.*
+	  from (select distinct t.ftype,
+	                        t.industry,
+	                        t.fundcode,
+	                        t.name,
+	                        t.manager,
+	                        t.escrow,
+	                        t.founddate,
+	                        t.flevel,
+	                        nvl(t.assetsize, 0) assetsize,
+	                        t.market,
+	                        t.buyrate,
+	                        case
+	                          when t.fundcode = s.fundcode then
+	                           'Y'
+	                          else
+	                           'N'
+	                        end ishold
+	          from FUNDBASEINFO t, INVESTMENT_RECORDS s
+	         where t.fundcode = s.fundcode(+)) t
+	 order by t.ftype,
+	          t.industry,
+	          t.escrow,
+	          t.flevel    desc,
+	          t.assetsize desc,
+	          t.founddate,
+	          t.ishold
+</select>
+
+<!-- Get Manager Ability Data -->
+<select id="getMangerAblity" resultType="com.jxhspace.investment.analysis.dto.ManagerDTO">
+	select t.manager,
+	       s.fundcode,
+	       t.amount,
+	       t.returnrate,
+	       t.country,
+	       t.sex,
+	       t.education,
+	       t.workdate,
+	       t.memo
+	  from MANAGERINFO t, FUNDBASEINFO s
+	 where t.manager = s.manager
+	 order by t.amount desc, t.returnrate desc
+</select>
+
+<!-- Get Each Platform Trans-Data -->
+<select id="getPlatformTrans" resultType="com.jxhspace.investment.analysis.dto.PlatformDTO">
+	select t.fundcode, t.platform, sum(t.amount) amount
+	  from INVESTMENT_RECORDS t
+	 where t.otype = 1
+	 group by t.fundcode, t.platform
+	 order by t.fundcode, t.platform
+</select>
+
+<!-- Get Each Month Trans-Data -->
+<select id="getEachMonthTrans" resultType="com.jxhspace.investment.analysis.dto.TransDTO">
+	select t.fundcode,
+	       to_char(t.trasdate, 'yyyymm') trasdate,
+	       sum(t.amount) amount
+	  from INVESTMENT_RECORDS t
+	 where t.otype = 1
+	 group by t.fundcode, to_char(t.trasdate, 'yyyymm')
+	 order by t.fundcode, to_char(t.trasdate, 'yyyymm')
+</select>
+
+<!-- Get Each Times Trans-Data -->
+<select id="getEachTimesInfo" resultType="com.jxhspace.investment.analysis.dto.TransDTO">
+	select t.*
+	  from (select distinct t.fundcode,
+	                        t.trasdate,
+	                        t.otype,
+	                        t.operator,
+	                        t.amount,
+	                        max(t.amount) over(partition by t.fundcode) maxbuy,
+	                        round(avg(t.amount) over(partition by t.fundcode), 4) avgbuy,
+	                        min(t.amount) over(partition by t.fundcode) minbuy
+	          from INVESTMENT_RECORDS t) t
+	 where t.amount = t.maxbuy
+	    or t.amount = t.minbuy
+	   and t.otype = 1
+	 order by t.trasdate, t.fundcode, t.amount
+</select>
+
+<!--Get Each Pc In-Out-Data  -->
+<select id="getEachPcInOut" resultType="com.jxhspace.investment.analysis.dto.TransDTO">
+	with basedata as
+	 (select t.fundcode, t.otype, sum(t.amount) amount
+	    from INVESTMENT_RECORDS t
+	   group by t.otype, t.fundcode)
+	select fundcode, BUY, nvl(SALE, 0) SALE
+	  from basedata
+	pivot (sum(amount) for otype in('1' "BUY", '0' "SALE"))
+</select>
+
+<!-- Get Each day Fluctuation Data -->
+<select id="getEachDayPrice" resultType="com.jxhspace.investment.analysis.dto.PriceDTO">
+	select t.fundcode,
+	       t.price,
+	       t.rdate,
+	       t.grownrate,
+	       s.trasdate,
+	       case
+	         when t.fundcode = s.fundcode then
+	          'Y'
+	         else
+	          'N'
+	       end ishold
+	  from FUNDPRICE_RECORDS t, INVESTMENT_RECORDS s
+	 where t.fundcode = s.fundcode(+)
+	   and t.rdate = trunc(s.trasdate(+))	
+<if test="fundcode !=null and fundcode !=''">
+	and t.fundcode=#{fundcode}
+</if>	   
+<if test="sdate !=null and sdate !='' and edate !=null and edate !=''">
+	and t.rdate between to_date(#{sdate},'yyyy/mm/dd') and to_date(#{edate},'yyyy/mm/dd')
+</if>	
+</select>
+
+<!-- Get Each-Price Compared-Data -->
+<select id="getPriceCompared" resultType="com.jxhspace.investment.analysis.dto.PriceDTO">
+	with basedata as
+	 (select t.fundcode,
+	         t.price,
+	         t.rdate,
+	         t.grownrate,
+	         s.trasdate,
+	         case
+	           when t.fundcode = s.fundcode then
+	            'Y'
+	           else
+	            'N'
+	         end ishold
+	    from FUNDPRICE_RECORDS t, INVESTMENT_RECORDS s
+	   where t.fundcode = s.fundcode(+)
+	     and t.rdate = trunc(s.trasdate(+))
+<if test="fundcode !=null and fundcode !=''">
+	and t.fundcode=#{fundcode}
+</if>	   
+<if test="sdate !=null and sdate !='' and edate !=null and edate !=''">
+	and t.rdate between to_date(#{sdate},'yyyy/mm/dd') and to_date(#{edate},'yyyy/mm/dd')
+</if>
+ order by t.fundcode, t.rdate)
+	select distinct t.fundcode,
+	                t.price,
+	                max(t.price) over(partition by t.fundcode) allhighmax,
+	                min(t.price) over(partition by t.fundcode) alllowmin,
+	                round(avg(t.price) over(partition by t.fundcode), 4) allavg,
+	                max(t.price) over(partition by t.fundcode, t.ishold) highmax,
+	                min(t.price) over(partition by t.fundcode, t.ishold) lowmin,
+	                round(avg(t.price) over(partition by t.fundcode, t.ishold),
+	                      4) avg,
+	                t.rdate,
+	                t.grownrate,
+	                max(t.grownrate) over(partition by t.fundcode) maxgrow,
+	                t.trasdate,
+	                t.ishold
+	  from basedata t
+	 order by t.fundcode, t.rdate	     
+</select>
+
+<!--Get Incomeinfo-Data  -->
+<select id="getIncomeInfo" resultType="com.jxhspace.investment.analysis.dto.IncomeDTO">
+	 select * from cumincome_records t where 1=1
+<if test="fundcode !=null and fundcode !=''">
+	and t.fundcode=#{fundcode}
+</if>	   
+<if test="sdate !=null and sdate !='' and edate !=null and edate !=''">
+	and t.recentdate between to_date(#{sdate},'yyyy/mm/dd') and to_date(#{edate},'yyyy/mm/dd')
+</if>	 
+</select>
+
+<!-- Get Variance-Data -->
+<select id="getVariance" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	select *
+	    from (select t.fundcode,
+	                 round(avg(t.price - t.avg_price), 9) * 1000000 value,
+	                 round(avg(t.price - t.med_price), 4) assist
+	            from (select distinct t.fundcode,
+	                                  t.rdate,
+	                                  t.price,
+	                                  round(avg(to_number(t.price))
+	                                        over(partition by t.fundcode),
+	                                        4) avg_price,
+	                                  round(median(to_number(t.price))
+	                                        over(partition by t.fundcode),
+	                                        4) med_price
+	                    from fundprice_records t,fundbaseinfo s
+	                   where 1 = 1
+	                     and t.fundcode=s.fundcode
+	                     and s.ftype &lt;&gt;'指數'
+	                     and t.rdate between trunc(sysdate) - (365 * 3) and
+	                         to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate-1,'yyyy/mm/dd')),'yyyy/mm/dd')
+	                         ) t
+	           group by t.fundcode)
+	   order by assist
+
+</select>
+
+<!-- Get Ratio-Data -->
+<select id="getRatio"  resultType="com.jxhspace.investment.analysis.dto.RatioDTO">
+	with basedata as
+	 (select *
+	    from (select distinct t.fundcode,
+	                          t.price,
+	                          t.rdate,
+	                          max(t.rdate) over(partition by t.fundcode) maxdate
+	            from fundprice_records t)
+	   where rdate = maxdate)
+	select t.fundcode,
+	       t.price,
+	       t.rdate,
+	       s.maxdate,
+	       s.price recentprice,
+	       case
+	         when s.price = t.price then
+	          '+∞'
+	         else
+	          to_char(round(t.price / (s.price - t.price), 8))
+	       end PERATE
+	  from fundprice_records t, basedata s
+	 where t.fundcode = s.fundcode
+<if test="fundcode !=null and fundcode !=''">
+	and t.fundcode=#{fundcode}
+</if>		         
+<if test="sdate !=null and sdate !='' and edate !=null and edate !=''">
+	and t.rdate between to_date(#{sdate},'yyyy/mm/dd') and to_date(#{edate},'yyyy/mm/dd')
+</if>
+ order by t.fundcode, t.rdate
+</select>
+
+<!-- Get IncreameIncome Data -->
+<select id="getIncreameIncome"  resultType="com.jxhspace.investment.analysis.dto.IncomeDTO">
+	with basedata as
+	 (select t.fundcode,
+	         t.recentdate,
+	         t.cost,
+	         t.cumincome,
+	         row_number() over(partition by t.fundcode order by t.fundcode, t.recentdate) tempnum
+	    from cumincome_records t)
+	select s.*,
+	       (s.cost - t.cost) costincrem,
+	       (s.cumincome - t.cumincome) incomeincrem
+	  from basedata t, basedata s
+	 where t.fundcode = s.fundcode
+	   and t.tempnum = s.tempnum - 1
+<if test="fundcode !=null and fundcode !=''">
+	and s.fundcode=#{fundcode}
+</if>		         
+<if test="sdate !=null and sdate !='' and edate !=null and edate !=''">
+	and s.recentdate between to_date(#{sdate},'yyyy/mm/dd') and to_date(#{edate},'yyyy/mm/dd')
+</if>	   
+</select>
+
+<!-- Get TotalIncomeInfo-Data -->
+<select id="getTotalIncomeInfo"  resultType="com.jxhspace.investment.analysis.dto.IncomeDTO">
+	select t.fundcode,
+	       max(t.cumincome) maxcumincome,
+	       min(t.cumincome) mincumincome,
+	       round(avg(t.cumincome), 4) avgcumincome
+	  from cumincome_records t where 1=1
+<if test="fundcode !=null and fundcode !=''">
+	and t.fundcode=#{fundcode}
+</if>	
+	group by t.fundcode
+    order by t.fundcode	  
+</select>
+	 
+<!-- Get Operation Advice -->
+<select id="getAdvice" resultType="com.jxhspace.investment.analysis.dto.AdviceDTO">
+	with basedata as
+	 (select fundcode, to_number(get_out_amount(avg, noinvoledays)) shouldout
+	    from (select t.fundcode,
+	                 case
+	                   when t.allavg &gt; 7500 then
+	                    case
+	                      when (7500 * t.rate) &lt;= s.ined then
+	                       0
+	                      else
+	                       7500 * t.rate
+	                    end
+	                   else
+	                    case
+	                      when t.avg &lt;=s.ined then
+	                       0
+	                      else
+	                       t.avg
+	                    end
+	                 end avg,
+	                 s.noinvoledays,
+	                 s.ined
+	            from view_eachmonth_invest t, view_nowdays_invest s
+	           where t.fundcode = s.fundcode)),
+	basedata_avg as
+	 (select t.fundcode, round(avg(t.price), 4) avgprice
+	    from fundprice_records t
+	   where t.rdate between trunc(sysdate) - 365 * 1.5 and trunc(sysdate) + 1
+	   group by t.fundcode),
+	basedata_avg_ as
+	 (select t.fundcode, round(avg(s.price), 2) avgprice_
+	    from investment_records t, fundprice_records s
+	   where t.fundcode = s.fundcode
+	     and trunc(t.trasdate) = s.rdate
+	     and t.otype = '1'
+	   group by t.fundcode),
+	basedata_recent as
+	 (select *
+	    from (select distinct t.fundcode,
+	                          t.price,
+	                          t.rdate,
+	                          max(t.rdate) over(partition by t.fundcode) maxdate
+	            from fundprice_records t)
+	   where rdate = maxdate)
+	select t.fundcode,
+	       t.shouldout,
+	       case
+	         when u.price &lt;= s.avgprice then
+	          'Highly recommended'
+	         when u.price &gt; s.avgprice and u.price &lt;= r.avgprice_ then
+	          'Suggest doing it'
+	         when u.price &gt; r.avgprice_ then
+	          'High-risk operations'
+	       end advice
+	  from basedata t, basedata_avg s, basedata_avg_ r, basedata_recent u
+	 where t.fundcode = s.fundcode
+	   and t.fundcode = r.fundcode
+	   and t.fundcode = u.fundcode	
+<if test="fundcode !=null and fundcode !=''">
+	and t.fundcode=#{fundcode}
+</if>		   
+</select>
+
+<!-- 1.Get RealTimeRow-Data -->
+<select id="getRealTimeRowData" resultType="com.jxhspace.investment.analysis.dto.RealTimeDataDTO">
+	--largest
+	with alltotal as
+	 (select fundcode, amount
+	    from (select t.*, row_number() over(order by t.amount desc) seq
+	            from (select t.fundcode, sum(nvl(t.amount, 0)) amount
+	                    from investment_records t
+	                   group by t.fundcode) t)
+	   where seq = 1)
+	
+	select t.fundcode,
+	       10 maxvalue,
+	       nvl(to_number(replace(t.grownrate, '%', '')), 0) nowvalue,
+	       to_number(t.price) assist
+	  from fundprice_records t, alltotal s
+	 where t.fundcode = s.fundcode
+	   and t.rdate = GET_WORKDATE(#{inDate,jdbcType=VARCHAR})
+	union all
+	--highest
+	select fundcode, maxvalue, nowvalue,assist
+	  from (select t.*, row_number() over(order by nowvalue desc) seq
+	          from (select t.fundcode,
+	                       10 maxvalue,
+	                       to_number(t.price) assist,
+	                       nvl(to_number(replace(t.grownrate, '%', '')), 0) nowvalue
+	                  from fundprice_records t
+	                 where t.rdate = GET_WORKDATE(#{inDate,jdbcType=VARCHAR})) t)
+	 where seq = 1
+	union all
+	--lowest
+	select fundcode, maxvalue, nowvalue,assist
+	  from (select t.*, row_number() over(order by nowvalue) seq
+	          from (select t.fundcode,
+	                       10 maxvalue,
+	                       to_number(t.price) assist,
+	                       nvl(to_number(replace(t.grownrate, '%', '')), 0) nowvalue
+	                  from fundprice_records t
+	                 where t.rdate = GET_WORKDATE(#{inDate,jdbcType=VARCHAR})) t)
+	 where seq = 1
+	union all
+	--middle
+	select fundcode, 10 maxvalue, nowvalue,assist
+	    from (select t.fundcode, nowvalue,assist, median(t.nowvalue) over() middle
+	            from (select t.fundcode,
+	                         nvl(to_number(replace(t.grownrate, '%', '')), 0) nowvalue,
+	                         to_number(t.price) assist
+	                    from fundprice_records t,fundbaseinfo s
+	                   where t.fundcode=s.fundcode and s.ftype &lt;&gt;'指數' and t.rdate = GET_WORKDATE(#{inDate,jdbcType=VARCHAR})) t)
+	   where nowvalue = middle and rownum = 1
+	 
+	 
+	union all
+	--DAYS
+	select 'days' fundcode,
+	       GET_WORKDAYS_AMOUNT(#{inDate,jdbcType=VARCHAR}, 4) maxvalue,
+	       GET_WORKDAYS_AMOUNT(#{inDate,jdbcType=VARCHAR}, 0) nowvalue,
+	       trunc(sysdate)-trunc(sysdate,'mm')+1 assist
+	  from dual
+	union all
+	--AMOUNTS
+	select t.*,to_number(t.maxvalue-t.nowvalue) assist
+	from (select 'amounts' fundcode,
+	       GET_EACHMONTH_AMOUNT(#{inDate,jdbcType=VARCHAR}) maxvalue,
+	       round(GET_WORKDAYS_AMOUNT(#{inDate,jdbcType=VARCHAR}, 1), 2) nowvalue     
+	  from dual) t
+	--ALLAMOUNTS
+	union all
+	select 'allamouonts' fundcode,
+	       (add_months(trunc(sysdate, 'yyyy'), 12) - 1) -
+	       trunc(sysdate, 'yyyy') maxvalue,
+	       trunc(sysdate) - trunc(sysdate, 'yyyy') nowvalue,
+	       to_number(to_char(sysdate,'ww')) assist
+	  from dual
+	--INCREAMEAMOUNTS
+	union all
+	select 'increameamounts' fundcode,
+	       round(abs(GET_WORKDAYS_AMOUNT(#{inDate,jdbcType=VARCHAR}, 3)) * 1.2,
+	             1) maxvalue,
+	       round(GET_WORKDAYS_AMOUNT(#{inDate,jdbcType=VARCHAR}, 3), 1) nowvalue,
+	       GET_WORKDAYS_AMOUNT(#{inDate,jdbcType=VARCHAR},6) assist
+	  from dual	
+</select>
+
+<!-- 2.Get Srate-Data -->	
+<select id="getSrateData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	select text fundcode, round(value,2) value, round((value / amount) * 100, 1) assist
+    from (select text, value, sum(value) over() amount
+            from (select t.fundcode text, sum(nvl(t.amount, 0)) value
+                    from investment_records t
+	                 where t.otype = 1
+	                 group by t.fundcode))
+	where value >=0	                 
+	 order by value
+</select>
+
+<!-- 3.Get AmountTop-Data -->	
+<select id="getAmountTopData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	with basedata as
+	 (select t.fundcode, round(t.cumincome / t.cost * 3, 2) assist
+	    from (select t.manager fundcode,
+	                 sum(t.cumincome) cumincome,
+	                 sum(t.cost) cost
+	            from (select t.fundcode,
+	                         s.manager,
+	                         t.cost,
+	                         t.cumincome,
+	                         t.recentdate,
+	                         max(t.recentdate) over(partition by t.fundcode) maxdate
+	                    from cumincome_records t, fundbaseinfo s
+	                   where t.fundcode = s.fundcode
+	                     and s.ftype &lt;&gt; '指數'
+	                     and t.recentdate &lt;= trunc(sysdate)) t
+	           where t.recentdate = t.maxdate
+	           group by t.manager) t),
+	rankdata as
+	 (select t.manager fundcode, round(t.returnrate, 2) value from managerinfo t)
+	
+	select t.fundcode, s.value, t.assist
+	  from basedata t, rankdata s
+	 where t.fundcode = s.fundcode
+	 order by s.value
+</select>
+
+<!-- 4.Get ClassType-Data -->	
+<select id="getClassTypeData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	select text fundcode, value, assist
+	  from (select t.fundcode text,
+	               round(t.cumincome, 2) value,
+	               t.cost assist,
+	               row_number() over(order by cost desc) seq
+	          from cumincome_records t
+	         where t.recentdate = GET_WORKDATE(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')))
+	         )
+	 where value > 0
+	 order by value desc
+</select>
+
+<!-- 5.Get ClassIncome-Data -->	
+<select id="getClassIncomeData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	with basedata as
+	 (select t.fundcode, round(t.cumincome / t.cost * 5, 1) assist
+	    from (select t.industry fundcode,
+	                 sum(t.cumincome) cumincome,
+	                 sum(t.cost) cost
+	            from (select t.fundcode,
+	                         s.industry,
+	                         t.cost,
+	                         t.cumincome,
+	                         t.recentdate,
+	                         max(t.recentdate) over(partition by t.fundcode) maxdate
+	                    from cumincome_records t, fundbaseinfo s
+	                   where t.fundcode = s.fundcode
+	                     and s.ftype &lt;&gt; '指數'
+	                     and t.recentdate &lt;= trunc(sysdate)) t
+	           where t.recentdate = t.maxdate
+	           group by t.industry) t),
+	rankdata as
+	 (select t.industry fundcode, round(avg(t.flevel)) value
+	    from fundbaseinfo t
+	   where t.isvalid = 1
+	     and t.ftype &lt;&gt; '指數'
+	   group by t.industry)
+	
+	select t.fundcode, s.value, t.assist
+	  from basedata t, rankdata s
+	 where t.fundcode = s.fundcode
+</select>
+
+<!--6.Get Hold-Data  -->
+<select id="getHoldData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	with basedata as
+	 (select t.*,
+	         row_number() over(partition by t.fundcode order by t.otype desc) seq
+	    from (select s.fundcode,
+	                 t.otype,
+	                 sum(round((t.amount * (1 - r.buyrate)) / s.price, 1)) value
+	            from investment_records t, fundprice_records s, fundbaseinfo r
+	           where s.fundcode = t.fundcode
+	             and s.rdate = trunc(t.trasdate)
+	             and s.fundcode = r.fundcode
+	           group by s.fundcode, t.otype) t)
+	
+	select t.fundcode, t.value - nvl(s.value, 0) value, nvl(s.value, 0) assist
+	  from basedata t, basedata s
+	 where t.fundcode = s.fundcode(+)
+	   and t.seq=1
+	   and t.seq = s.seq(+) - 1
+	   order by (t.value - nvl(s.value, 0)) desc
+</select>
+
+<!-- 7.Get PriceTrend-Data -->
+<select id="getpriceTrend" resultType="com.jxhspace.investment.analysis.dto.PriceTrendDTO">
+	with basedata as
+	 (select t.fundcode,
+	         t.rdate,
+	         t.price,
+	         min(t.rdate) over(partition by t.fundcode) minrate
+	    from fundprice_records t, fundbaseinfo s
+	   where t.fundcode = s.fundcode
+	     and t.rdate between to_date(nvl(#{sDate,jdbcType=VARCHAR},to_char(sysdate-365,'yyyy/mm/dd')),'yyyy/mm/dd')
+	     and to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+	     and s.industry = nvl(#{industry,jdbcType=VARCHAR},'消費')
+<if test="fundcode !=null and fundcode !=''">
+		and t.fundcode=#{fundcode}
+</if>	     
+	     ),
+	
+		pricedata as
+		 (select t.fundcode,
+		         t.rdate,
+		         round((t.price - s.price) / s.price * 100, 2) value,
+		         t.price assist
+		    from basedata t,
+		         (select t.fundcode, t.price
+		            from basedata t
+		           where t.rdate = t.minrate) s
+		   where t.fundcode = s.fundcode)
+		   
+		select distinct t.fundcode, t.rdate, t.value, decode(s.fundcode, null, 0, 1) assist
+		  from pricedata t, investment_records s
+		 where t.fundcode = s.fundcode(+)
+		   and t.rdate = trunc(s.trasdate(+))
+		 order by t.fundcode, t.rdate
+</select>
+
+<!-- 8.Get IncomeTrend-Data -->
+<select id="getIncomeTrend" resultType="com.jxhspace.investment.analysis.dto.PriceTrendDTO">
+	with basedata as (select t.recentdate rdate,
+	       round(sum(t.cost + t.cumincome), 1) value,
+	       round(sum(t.cost), 1) assist
+	  from cumincome_records t
+	  where t.recentdate between to_date(nvl(#{sDate,jdbcType=VARCHAR},to_char(sysdate-365,'yyyy/mm/dd')),'yyyy/mm/dd')
+	  and to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate-1,'yyyy/mm/dd')),'yyyy/mm/dd')
+<if test="fundcode !=null and fundcode !=''">
+	  and t.fundcode=#{fundcode}
+</if>	  
+	 group by t.recentdate)
+
+	select * from (select '資產' fundcode,rdate,value from basedata
+	union all
+	select '投入' fundcode,rdate,assist value from basedata)   
+	order by fundcode,rdate
+</select>
+
+<!-- 9.Get RecentOperate-Data -->
+<select id="getRecentOperateData" resultType="com.jxhspace.investment.analysis.dto.PriceTrendDTO">
+	select *
+	  from (select fundcode,
+	               amount value,
+	               to_char(trasdate,'yyyy-mm-dd') rdate,
+	               otype assist,
+	               row_number() over(partition by otype order by trasdate desc) seq
+	          from (select t.fundcode,
+	                       sum(t.amount) amount,
+	                       trunc(t.trasdate) trasdate,
+	                       t.otype
+	                  from investment_records t
+	                 group by t.fundcode, trunc(t.trasdate), t.otype))
+	 where seq = 1
+</select>
+
+<!-- 10.Get Industory-Data -->
+<select id="getIndustryList" resultType="com.jxhspace.investment.base.dto.TextValueDTO">
+	select distinct t.industry text,t.industry value from fundbaseinfo t  where t.isvalid=1 and t.ftype &lt;&gt;'指數'
+</select>
+
+<!-- 11.Get Lastdate Price-Data -->
+<select id="getLastdate" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	select fundcode,
+         rdate,
+         price value,
+         to_number(replace(grownrate, '%')) assist
+    from (select t.*, max(t.rdate) over() maxrdate
+            from fundprice_records t,fundbaseinfo s
+           where t.fundcode=s.fundcode and s.ftype &lt;&gt;'指數'  and t.rdate &lt;=to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+           )
+   where rdate = maxrdate
+   order by fundcode
+</select>
+
+<!-- 12.Get Monthdetails-Data -->
+<select id="getMonthDetailsData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	with datedata as
+	 (select distinct to_char(datelist, 'yyyymm') datelist
+	    from (select to_date(nvl(#{sDate,jdbcType=VARCHAR},to_char(sysdate-365,'yyyy/mm/dd')),'yyyy/mm/dd') + level - 1 datelist
+	            from dual
+	          connect by level &lt;= to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')-
+          to_date(nvl(#{sDate,jdbcType=VARCHAR},to_char(sysdate-365,'yyyy/mm/dd')),'yyyy/mm/dd') 
+	          + 1)),
+	costdata as
+	 (select to_char(t.trasdate, 'yyyymm') trasdate, sum(t.amount) value
+	    from investment_records t
+	   where t.trasdate between to_date(nvl(#{sDate,jdbcType=VARCHAR},to_char(sysdate-365,'yyyy/mm/dd')),'yyyy/mm/dd') 
+	   and to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+	   group by to_char(t.trasdate, 'yyyymm')),
+	incomedata as
+	 (select to_char(t.recentdate, 'yyyymm') recentdate, sum(t.value) value
+	    from view_eachday_income t
+	   where t.recentdate between to_date(nvl(#{sDate,jdbcType=VARCHAR},to_char(sysdate-365,'yyyy/mm/dd')),'yyyy/mm/dd') 
+	   and to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+	   group by to_char(t.recentdate, 'yyyymm'))
+	
+	select t.datelist fundcode,
+	       round(nvl(s.value, 0), 2) value,
+	       round(nvl(r.value, 0), 2) assist
+	  from datedata t, incomedata s, costdata r
+	 where t.datelist = s.recentdate(+)
+	   and t.datelist = r.trasdate(+)
+	 order by t.datelist
+</select>
+
+<!-- 13.Get LastDateFundcode-Data -->
+<select id="getLastDateFundecodeData" resultType="com.jxhspace.investment.analysis.dto.RateDTO">
+	with basedata as
+	 (select fundcode,
+	         recentdate,
+	         cumincome value,
+	         to_number(replace(inrate, '%')) assist
+	    from (select t.*, max(t.recentdate) over() maxrdate
+	            from cumincome_records t
+	           where t.recentdate &lt;= to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+	           )
+	   where recentdate = maxrdate
+	     and cumincome &gt; 0),
+	
+	detaildata as
+	 (select fundcode, recentdate, value
+	    from (select t.*, max(t.recentdate) over() maxrdate
+	            from view_income_details t
+	           where t.recentdate &lt;= to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+	           )
+	   where recentdate = maxrdate)
+	
+	select t.fundcode,
+	       t.recentdate rdate,
+	       round(s.value,2) value,
+	       case
+	         when t.value = 0 then
+	          0
+	         else
+	          round(s.value / t.value * 100, 2)
+	       end assist
+	  from basedata t, detaildata s
+	 where t.fundcode = s.fundcode(+)
+	   and t.recentdate = s.recentdate(+)
+	   order by s.value
+</select>
+
+<!-- 14.Get Index-Data -->
+<select id="getIndexData" resultType="com.jxhspace.investment.analysis.dto.PriceTrendDTO">
+	select  t.fundcode,
+	       t.price value,
+	       to_char(t.rdate,'yyyy-mm-dd') rdate,
+	       replace(t.grownrate,'%','') assist
+	  from (select t.fundcode,
+	               s.name,
+	               round(t.price, 1) price,
+	               t.rdate,
+	               t.grownrate,
+	               max(t.rdate) over(partition by t.fundcode) maxdate
+	          from fundprice_records t, fundbaseinfo s
+	         where t.fundcode = s.fundcode
+	           and s.ftype = '指數'
+	           and t.rdate &lt;=to_date(nvl(#{inDate,jdbcType=VARCHAR},to_char(sysdate,'yyyy/mm/dd')),'yyyy/mm/dd')
+	           ) t
+	 where t.rdate = t.maxdate
+</select>
+
+<!-- 15.Get Center-circle-Data -->
+<select id="getCenterCircleData" resultType="com.jxhspace.investment.base.dto.TextValueDTO">
+	select pkg_enginecore_center.analysis_basic_data(0, 1, #{inDate,jdbcType=VARCHAR}) text
+	  from dual
+	union all
+	select pkg_enginecore_center.analysis_basic_data(0, 0, #{inDate,jdbcType=VARCHAR}) text
+	  from dual
+	union all
+	select pkg_enginecore_center.analysis_basic_data(1, 1, #{inDate,jdbcType=VARCHAR}) text
+	  from dual
+	union all
+	select pkg_enginecore_center.analysis_basic_data(1, 0, #{inDate,jdbcType=VARCHAR}) text
+	  from dual
+</select>
+
+<!-- 16.Get Center-analysis-Data -->
+<select id="getCenterAnalysisData" resultType="String">
+	select pkg_enginecore_center.insight_operate_result(#{inDate,jdbcType=VARCHAR}) from dual
+</select>
+
+<!-- 17.Get Manager-Chartinfo -->
+<select id="getManagerChart" resultType="com.jxhspace.investment.analysis.dto.ManagerChartDTO">
+	with basedata as
+	 (select t.*,
+	         row_number() over(partition by t.fundcode order by rdate desc) seq
+	    from (select *
+	            from (select distinct s.shortname fundcode,
+	                                  r.rdate,
+	                                  r.price,
+	                                  max(r.rdate) over(partition by s.shortname) maxdate,
+	                                  min(r.rdate) over(partition by s.shortname) mindate,
+	                                  t.manager,
+	                                  t.country,
+	                                  t.sex,
+	                                  t.education,
+	                                  t.workdate,
+	                                  t.amount,
+	                                  t.returnrate,
+	                                  t.imgpath,
+	                                  t.memo
+	                    from managerinfo t, fundbaseinfo s, fundprice_records r
+	                   where t.manager = s.manager
+	                     and s.fundcode = r.fundcode
+	                     and s.ftype &lt;&gt; '指數'
+	                     and t.manager = #{manager,jdbcType=VARCHAR}) t
+	           where t.rdate = t.maxdate
+	              or t.rdate = t.mindate) t)
+	
+	select s.fundcode,
+	       round((t.price - s.price) / s.price * 100) value,
+	       0 assist,
+	       s.manager,
+	       s.country,
+	       s.sex,
+	       s.education,
+	       to_char(s.workdate,'yyyy-mm-dd') workdate,
+	       s.amount,
+	       s.returnrate,
+	       s.imgpath,
+	       s.memo
+	  from basedata t, basedata s
+	 where t.fundcode = s.fundcode
+	   and t.seq = s.seq - 1
+</select>
+
+
+
+<!-- 18.Get AnalysisChartData -->
+<select id="getAnalysisChartData" parameterType="HashMap" statementType="CALLABLE">
+<![CDATA[
+	call pkg_enginecore_center.cal_report_chart(
+	#{para.tdate,mode=IN,jdbcType=VARCHAR},
+	#{para.days,mode=IN,jdbcType=INTEGER},
+	#{para.outrecord,mode=OUT,jdbcType=CURSOR,resultMap=dataChart})	
+]]>
+</select>
+
+<!-- 19.Get AnalysisAdaviceData -->
+<select id="getAnalysisAdaviceData" parameterType="HashMap" statementType="CALLABLE">
+<![CDATA[
+	call pkg_enginecore_center.cal_analysis_detail(
+	#{para.tdate,mode=IN,jdbcType=VARCHAR},
+	#{para.days,mode=IN,jdbcType=INTEGER},
+	#{para.outrecord,mode=OUT,jdbcType=CURSOR,resultMap=dataAdvice})
+]]>	
+</select>
+         
+</mapper>

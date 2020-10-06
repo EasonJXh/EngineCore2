@@ -1,0 +1,180 @@
+-- Create table
+create table SYS_USER
+(
+  userid     VARCHAR2(32) not null,
+  tel        VARCHAR2(11) not null,
+  password   VARCHAR2(64),
+  name       VARCHAR2(32) not null,
+  sex        VARCHAR2(4),
+  borndate   DATE,
+  email      VARCHAR2(64) not null,
+  bornplace  VARCHAR2(64),
+  education  VARCHAR2(16),
+  school     VARCHAR2(64),
+  memo       VARCHAR2(32),
+  isvalid    NUMBER default 1,
+  createdate DATE default SYSDATE,
+  updatedate DATE default SYSDATE
+)
+partition by range (BORNDATE)
+(
+  partition USER_PART_80 values less than (TO_DATE(' 1985-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    ),
+  partition USER_PART_85 values less than (TO_DATE(' 1990-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    ),
+  partition USER_PART_90 values less than (TO_DATE(' 1995-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    ),
+  partition USER_PART_95 values less than (TO_DATE(' 2000-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    ),
+  partition USER_PART_00 values less than (TO_DATE(' 2005-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    ),
+  partition USER_PART_05 values less than (TO_DATE(' 2010-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    ),
+  partition USER_PART_10 values less than (TO_DATE(' 2015-01-01 00:00:00', 'SYYYY-MM-DD HH24:MI:SS', 'NLS_CALENDAR=GREGORIAN'))
+    tablespace USERS
+    pctfree 10
+    initrans 1
+    maxtrans 255
+    storage
+    (
+      initial 64K
+      next 8K
+      minextents 1
+      maxextents unlimited
+    )
+);
+-- Add comments to the table 
+comment on table SYS_USER
+  is '用戶表';
+-- Add comments to the columns 
+comment on column SYS_USER.userid
+  is '用戶信息唯一標示碼';
+comment on column SYS_USER.tel
+  is '賬號綁定手機號';
+comment on column SYS_USER.password
+  is '密碼單向加密值';
+comment on column SYS_USER.name
+  is '姓名';
+comment on column SYS_USER.sex
+  is '性別';
+comment on column SYS_USER.borndate
+  is '出生年月日';
+comment on column SYS_USER.email
+  is '郵箱';
+comment on column SYS_USER.bornplace
+  is '籍貫';
+comment on column SYS_USER.education
+  is '學歷';
+comment on column SYS_USER.school
+  is '學校';
+comment on column SYS_USER.memo
+  is '備註';
+comment on column SYS_USER.isvalid
+  is '有效性';
+comment on column SYS_USER.createdate
+  is '註冊日期';
+comment on column SYS_USER.updatedate
+  is '賬號更新日期';
+-- Create/Recreate primary, unique and foreign key constraints 
+alter table SYS_USER
+  add constraint SYS_USER_PK primary key (USERID)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+alter table SYS_USER
+  add constraint SYS_USER_KEY1 unique (TEL)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );
+alter table SYS_USER
+  add constraint SYS_USER_KEY2 unique (EMAIL)
+  using index 
+  tablespace USERS
+  pctfree 10
+  initrans 2
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 1M
+    minextents 1
+    maxextents unlimited
+  );

@@ -1,0 +1,31 @@
+-- Create table
+create table CUMINCOME_RECORDS
+(
+  fundcode   VARCHAR2(16),
+  recentdate DATE,
+  ishold     VARCHAR2(4),
+  cost       NUMBER,
+  cumincome  NUMBER,
+  inrate     VARCHAR2(32),
+  owner      VARCHAR2(32),
+  creator    VARCHAR2(16),
+  createdate DATE default SYSDATE,
+  updatedate DATE default SYSDATE
+)
+tablespace USERS
+  pctfree 10
+  initrans 1
+  maxtrans 255
+  storage
+  (
+    initial 64K
+    next 8K
+    minextents 1
+    maxextents unlimited
+  );
+-- Add comments to the table 
+comment on table CUMINCOME_RECORDS
+  is '每天的累計收益信息記錄';
+-- Add comments to the columns 
+comment on column CUMINCOME_RECORDS.owner
+  is '用戶所屬';

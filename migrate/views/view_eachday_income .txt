@@ -1,0 +1,10 @@
+create or replace view view_eachday_income as
+with basedata as
+ (select *
+    from (select t.*, row_number() over(order by t.recentdate desc) seq
+            from (select sum(t.cumincome) amount, t.recentdate
+                    from cumincome_records t
+                   group by t.recentdate) t))
+select t.recentdate, (t.amount - s.amount) value
+  from basedata t, basedata s
+ where t.seq = s.seq - 1;

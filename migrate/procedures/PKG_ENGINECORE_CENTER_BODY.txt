@@ -1,0 +1,565 @@
+create or replace package body PKG_ENGINECORE_CENTER is
+
+  /*1.CALCULATE THE CUMULATIVE RATE OF RETURN FOR EACH DAY OF THE PERIOD*/
+  procedure CALCUTE_CUMINCOME_INDEX(SDATE IN VARCHAR2, EDATE IN VARCHAR2) is
+  
+    days      number;
+    startdate date;
+    enddate   date;
+    msg       varchar2(2000);
+  
+  begin
+  
+    if SDATE is null and EDATE is null then
+      startdate := trunc(sysdate) - 3;
+      enddate   := trunc(sysdate) - 1;
+    elsif SDATE is not null and EDATE is null then
+      startdate := to_date(SDATE, 'yyyy/mm/dd');
+      enddate   := trunc(sysdate);
+    elsif SDATE is null and EDATE is not null then
+      startdate := to_date(EDATE, 'yyyy/mm/dd') - 7;
+      enddate   := to_date(EDATE, 'yyyy/mm/dd');
+    else
+      startdate := to_date(SDATE, 'yyyy/mm/dd');
+      enddate   := to_date(EDATE, 'yyyy/mm/dd');
+    end if;
+    days := enddate - startdate + 1;
+    dbms_output.put_line('本次應計算天數為:' || days);
+  
+    for i in 0 .. days loop
+      merge into CUMINCOME_RECORDS t
+      using (
+        with basedata as
+         (select fundcode, operator, sum(amount) cost, sum(qty) qty
+            from (select fundcode,
+                         price,
+                         operator,
+                         decode(otype, 0, - (amount + charge), amount) amount,
+                         decode(otype,
+                                0,
+                                - (round((amount + charge) / price, 2)),
+                                round((amount - charge) / price, 2)) qty,
+                         otype,
+                         rdate
+                    from (select t.fundcode,
+                                 t.price,
+                                 s.operator,
+                                 nvl(s.amount, 0) amount,
+                                 nvl(s.charge, 0) charge,
+                                 s.otype,
+                                 t.rdate
+                            from FUNDPRICE_RECORDS  t,
+                                 INVESTMENT_RECORDS s,
+                                 FUNDBASEINFO       r
+                           where t.fundcode = s.fundcode
+                             and t.rdate = trunc(s.trasdate)
+                             and t.fundcode = r.fundcode
+                             and r.ftype <> '指數'
+                             and t.rdate >=
+                                 (select trunc(min(trasdate))
+                                    from investment_records)
+                             and t.rdate <= startdate + i))
+           group by fundcode, operator),
+        pricedata as
+         (select t.fundcode, t.price, t.rdate
+            from (select distinct t.fundcode,
+                                  t.price,
+                                  t.rdate,
+                                  max(t.rdate) over(partition by t.fundcode) maxdate
+                    from fundprice_records t, fundbaseinfo s
+                   where t.fundcode = s.fundcode
+                     and t.rdate <= startdate + i
+                     and s.ftype <> '指數') t
+           where t.rdate = t.maxdate)
+        
+        select t.fundcode,
+               t.recentdate,
+               'Y' ishold,
+               t.cost,
+               t.cumincome,
+               round(t.cumincome / t.cost * 100, 2) || '%' inrate,
+               t.owner
+          from (select t.fundcode,
+                       t.rdate recentdate,
+                       s.cost,
+                       s.operator owner,
+                       round(s.qty * t.price - s.cost, 2) cumincome
+                  from pricedata t, basedata s
+                 where t.fundcode = s.fundcode) t) s
+            on (t.FUNDCODE = s.fundcode and t.RECENTDATE = s.recentdate and
+               t.OWNER = s.owner) when not matched then
+          insert
+            (t.FUNDCODE,
+             t.RECENTDATE,
+             t.ISHOLD,
+             t.COST,
+             t.CUMINCOME,
+             t.INRATE,
+             t.OWNER,
+             t.CREATOR,
+             t.CREATEDATE)
+          values
+            (s.fundcode,
+             s.recentdate,
+             s.ishold,
+             s.cost,
+             s.cumincome,
+             s.inrate,
+             s.owner,
+             'SYS',
+             sysdate)
+        when matched then
+          update
+             set t.COST       = s.cost,
+                 t.CUMINCOME  = s.cumincome,
+                 t.INRATE     = s.inrate,
+                 t.UPDATEDATE = sysdate
+           where t.FUNDCODE = s.fundcode
+             and t.RECENTDATE = s.recentdate
+             and t.OWNER = s.owner;
+    end loop;
+    commit;
+  exception
+    when others then
+      msg := substr(SQLERRM, 0, 200);
+      dbms_output.put_line(msg || ':程式發生異常,請稍後再試!');
+      rollback;
+  end;
+  
+  /*2.CALCUTE THE ANALYSIS'S DETAILS*/
+  procedure CAL_ANALYSIS_DETAIL(TDATE IN VARCHAR,DAYS IN NUMBER,OUTRECORD out sys_refcursor) is
+    TEMPDATE VARCHAR(2000);
+    NUMS NUMBER;
+    VSQL VARCHAR(20000);
+    begin
+      if TDATE is null then
+        TEMPDATE:=TO_CHAR(SYSDATE,'YYYY/MM/DD');
+      else
+        TEMPDATE:=TDATE;
+      end if;
+      if DAYS is null then
+        NUMS:=365;
+      else
+        NUMS:=DAYS;
+      end if;
+      
+      VSQL:='with basedata as
+                 (select t.fundcode,
+                         t.rdate,
+                         t.price,
+                         row_number() over(partition by t.fundcode order by t.rdate) seq
+                    from (select t.fundcode,
+                                 t.rdate,
+                                 t.price,
+                                 max(t.rdate) over(partition by t.fundcode) maxdate,
+                                 min(t.rdate) over(partition by t.fundcode) mindate
+                            from fundprice_records t, fundbaseinfo s
+                           where t.fundcode = s.fundcode
+                             and s.ftype <> ''指數''
+                             and t.rdate between TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD'')-'|| NUMS||' and TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD'')) t
+                   where t.rdate = t.maxdate
+                      or t.rdate = t.mindate),
+
+                increamedata as
+                 (select s.fundcode,
+                         round((s.price - t.price) / t.price * 5, 2) increamerate
+                    from basedata t, basedata s
+                   where t.fundcode = s.fundcode
+                     and t.seq = s.seq - 1),
+                --參考指標2(投入)
+                costratedata as
+                 (select fundcode, round(amount / allamount * 5, 2) costrate
+                    from (select t.fundcode, sum(t.amount) over() allamount, t.amount
+                            from (select fundcode, sum(amount) amount
+                                    from (select t.fundcode,
+                                                 case
+                                                   when t.otype = ''0'' then
+                                                    - (t.amount + t.charge)
+                                                   else
+                                                    t.amount
+                                                 end amount
+                                            from investment_records t
+                                           where trunc(t.trasdate) <= TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD''))
+                                   group by fundcode) t)),
+                --參考指標3(機構評級)
+                leveldata as
+                 (select t.fundcode, t.flevel,t.shortname,t.industry from fundbaseinfo t where t.ftype <> ''指數''),
+                --參考指標4(操作記錄)
+                qtydata as
+                 (select fundcode, amount, decode(ishold, ''N'', 0, qty) days
+                    from (select distinct fundcode,
+                                          ishold,
+                                          sum(amount) over(partition by fundcode, ishold) amount,
+                                          count(0) over(partition by fundcode, ishold) qty
+                            from (select t.fundcode,
+                                         t.rdate,
+                                         nvl(s.amount, 0) amount,
+                                         decode(s.fundcode, null, ''N'', ''Y'') ishold
+                                    from fundprice_records t,
+                                         (select * from investment_records where otype = ''1'') s,
+                                         fundbaseinfo r
+                                   where t.fundcode = s.fundcode(+)
+                                     and t.rdate = trunc(s.trasdate(+))
+                                     and t.fundcode = r.fundcode(+)
+                                     and r.ftype <> ''指數''
+                                     and t.rdate between to_date(to_char(TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD''), ''yyyy/mm/'') || ''01'',
+                                                                 ''yyyy/mm/dd'') and
+                                         TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD''))))
+
+                select fundcode,shortname,industry,
+                       round((allamount * rate / alldays) * (alldays - days), 2) value,
+                       rate * 100 assist
+                  from (select fundcode,
+                               shortname,
+                               industry,
+                               round(flevel / alllevel, 4) rate,
+                               amount,
+                               days,
+                               nvl(get_workdays_amount('''||TEMPDATE ||''', 0), 21) alldays,
+                               nvl(get_eachmonth_amount('''||TEMPDATE ||'''), 7000) allamount
+                          from (select fundcode,
+                                       shortname,
+                                        industry,
+                                       sum(flevel) over() alllevel,
+                                       flevel,
+                                       amount,
+                                       days
+                                  from (select t.fundcode,
+                                               r.shortname,
+                                               r.industry,
+                                               t.increamerate + nvl(s.costrate, 0) +
+                                               nvl(r.flevel, 0) flevel,
+                                               nvl(q.amount, 0) amount,
+                                               nvl(q.days, 0) days
+                                          from increamedata t
+                                          left join costratedata s
+                                            on t.fundcode = s.fundcode
+                                          left join leveldata r
+                                            on t.fundcode = r.fundcode
+                                          left join qtydata q
+                                            on t.fundcode = q.fundcode))) order by industry';
+    dbms_output.put_line(VSQL);                                                                                        
+    open OUTRECORD for VSQL;
+    exception
+      when others then
+        dbms_output.put_line(substr(SQLERRM, 0, 200));
+  end;
+  
+  /*3.CALCUTE THE REPORT CHART*/
+  procedure CAL_REPORT_CHART(TDATE IN VARCHAR,DAYS IN NUMBER,OUTRECORD out sys_refcursor) IS
+    TEMPDATE VARCHAR(32);
+    VSQL VARCHAR(20000);
+    NUMS NUMBER;
+    begin
+      if TDATE IS NULL THEN
+        TEMPDATE:=TO_CHAR(SYSDATE,'YYYY/MM/DD');
+      else
+        TEMPDATE:=TDATE;
+      end if;
+      
+      if DAYS is null then
+        NUMS:=365;
+      else
+        NUMS:=DAYS;
+      end if;
+      
+      VSQL:='select distinct t.rdate,
+                            t.avgrate,
+                            t.minrate,
+                            t.maxrate,
+                            min(t.medvalue) over(partition by t.rdate) minmed,
+                            max(t.medvalue) over(partition by t.rdate) maxmed,
+                            min(t.avgvalue) over(partition by t.rdate) minavg,
+                            max(t.avgvalue) over(partition by t.rdate) maxavg,
+                            case
+                              when avgrate <= 0 then
+                               ''down''
+                              else
+                               ''up''
+                            end trend
+              from (select t.*,
+                           round(avg(t.rate) over(partition by t.rdate), 4) avgrate,
+                           min(t.rate) over(partition by t.rdate) minrate,
+                           max(t.rate) over(partition by t.rdate) maxrate,
+                           round(median(to_number(t.rate))
+                                 over(partition by t.rdate, t.industry),
+                                 4) medvalue,
+                           round(avg(t.rate) over(partition by t.rdate, t.industry), 4) avgvalue
+                      from (select t.fundcode,
+                                   s.industry,
+                                   t.rdate,
+                                   to_number(nvl(replace(t.grownrate, ''%'', ''''), 0)) rate
+                              from fundprice_records t, fundbaseinfo s
+                             where t.fundcode = s.fundcode
+                               and s.ftype <> ''指數''
+                               and t.rdate>=TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD'')-'|| NUMS||'
+                               and t.rdate <= TO_DATE('''||TEMPDATE ||''',''YYYY/MM/DD'')) t) t
+             order by t.rdate'; 
+     dbms_output.put_line(VSQL);                                                                                        
+    open OUTRECORD for VSQL;
+    exception
+      when others then
+        dbms_output.put_line(substr(SQLERRM, 0, 200));                                         
+   end;  
+
+  /*Function*/
+  /*TEST BASIC-DATA*/
+  function ANALYSIS_BASIC_DATA(FTYPE NUMBER,
+                               DTYPE NUMBER,
+                               TDATE IN VARCHAR) RETURN VARCHAR IS
+    VRESULT  VARCHAR(2000);
+    TEMPDATE VARCHAR(16);
+    VSQL     VARCHAR(4000);
+    INDUSTRY VARCHAR(16);
+    RATE     NUMBER;
+    PERCENT  NUMBER;
+    AVGRATE  NUMBER;
+    RTYPE    VARCHAR(8);
+    MSG      VARCHAR(2000);
+    /*******
+    參數釋義：
+    FTYPE:0,代表指數大盤,1,代表FUND
+    DTYPE:0,代表下跌,1代表上漲
+    TDATE:代表品鑒日期
+    ********/
+  begin
+  
+    if TDATE is null or TDATE = '' then
+      TEMPDATE := TO_CHAR(SYSDATE, 'YYYY/MM/DD');
+    else
+      TEMPDATE := nvl(TDATE, TO_CHAR(SYSDATE, 'YYYY/MM/DD'));
+    end if;
+  
+    if DTYPE is null or FTYPE is null then
+      msg := 'FTYPE或者DTYPE為必傳參數!';
+    end if;
+  
+    if FTYPE = 0 then
+      VSQL := 'with basedata as (select rtype,
+             avgrate,
+             round(qty / allqty * 100) qtyrate,
+             round(abs(rate) / allrate * 100) pricerate
+        from (select distinct t.rtype,
+                              sum(t.rate) over(partition by t.rtype) rate,
+                              count(0) over(partition by t.rtype) qty,
+                              count(0) over() allqty,
+                              sum(abs(t.rate)) over() allrate,
+                              median(abs(t.rate))over(partition by t.rtype) avgrate
+                from (select t.fundcode,
+                             t.rdate,
+                             replace(t.grownrate, ''%'', '''') rate,
+                             case
+                               when to_number(replace(t.grownrate, ''%'', '''')) <= 0 then
+                                0
+                               else
+                                1
+                             end rtype,
+                             max(t.rdate) over(partition by t.fundcode) maxrdate
+                        from fundprice_records t, fundbaseinfo s
+                       where t.fundcode = s.fundcode
+                         and s.ftype = ''指數''
+                         and t.rdate <=TO_DATE(''' || TEMPDATE ||
+              ''',''YYYY/MM/DD'')
+                         ) t
+               where t.rdate = t.maxrdate)) select nvl(sum(rtype),' ||
+              DTYPE || ') rtype,nvl(sum(qtyrate),0) qtyrate,nvl(sum(pricerate),0) pricerate,nvl(sum(avgrate),0) avgrate
+                from basedata t where t.rtype=' || DTYPE ||
+              ' and rownum=1';
+      dbms_output.put_line(VSQL);
+      EXECUTE IMMEDIATE VSQL
+        INTO RTYPE, PERCENT, RATE, AVGRATE;
+      VRESULT := RTYPE || ',' || PERCENT || ',' || RATE || ',' || AVGRATE;
+    else
+      VSQL := 'with basedata as (select rtype,industry,
+                       round(qty / allqty * 100) qtyrate,
+                       round(rate / allrate * 100) rate,
+                       avgrate
+                  from (select industry,
+                               rtype,
+                               allqty,
+                               qty,
+                               rate,
+                               allrate,
+                               sumrate,
+                               avgrate,
+                               max(sumrate) over(partition by rtype) maxrate
+                          from (select distinct t.industry,
+                                                t.rtype,
+                                                sum(t.rate) over(partition by t.industry) sumrate,
+                                                count(0) over() allqty,
+                                                count(0) over(partition by t.rtype) qty,
+                                                sum(abs(t.rate)) over(partition by t.rtype) rate,
+                                                round(median(abs(t.rate))over(partition by t.rtype),2) avgrate,
+                                                sum(abs(t.rate)) over() allrate
+                                  from (select t.fundcode,
+                                               s.industry,
+                                               t.rdate,
+                                               replace(nvl(t.grownrate, ''0''), ''%'', '''') rate,
+                                               case
+                                                 when to_number(replace(nvl(t.grownrate, ''0''),
+                                                                        ''%'',
+                                                                        '''')) <= 0 then
+                                                  0
+                                                 else
+                                                  1
+                                               end rtype,
+                                               max(t.rdate) over() maxrdate
+                                          from fundprice_records t, fundbaseinfo s
+                                         where t.fundcode = s.fundcode
+                                           and s.ftype <> ''指數''
+                                           and t.rdate <=TO_DATE(''' ||
+              TEMPDATE || ''',''YYYY/MM/DD'')
+                                           ) t
+                                 where t.rdate = t.maxrdate) t) t
+                 where t.maxrate = t.sumrate) 
+                 select nvl(sum(rtype),' || DTYPE ||
+              ') rtype,nvl(wm_concat(industry),''暫無'') industry,nvl(sum(qtyrate),0) qtyrate,nvl(sum(rate),0) rate,nvl(sum(avgrate),0) avgrate
+                     from basedata t where t.rtype=' || DTYPE ||
+              ' and rownum=1';
+      dbms_output.put_line(VSQL);
+      EXECUTE IMMEDIATE VSQL
+        INTO RTYPE, INDUSTRY, PERCENT, RATE, AVGRATE;
+      VRESULT := RTYPE || ',' || INDUSTRY || ',' || PERCENT || ',' || RATE || ',' ||
+                 AVGRATE;
+    end if;
+    return VRESULT;
+  exception
+    when others then
+      MSG := MSG || substr(SQLERRM, 0, 200);
+      dbms_output.put_line(MSG);
+      return MSG;
+  end;
+
+  /*GENERATE THE OPERATION REPORT*/
+  function INSIGHT_OPERATE_RESULT(INDATE IN VARCHAR) return varchar is
+    VRESULT     VARCHAR(2000);
+    MARRATE     VARCHAR(16);
+    MARPERCENT  VARCHAR(16);
+    FUNRATE     VARCHAR(16);
+    FUNPERCENT  VARCHAR(16);
+    INDUSTRYMAX VARCHAR(32);
+    INDUSTRYMIN VARCHAR(32);
+    MARAVG      VARCHAR(32);
+    FUNAVG      VARCHAR(32);
+    MSG         VARCHAR(2000);
+    OPERATION   VARCHAR(32);
+    TEMPDATE    VARCHAR(2000);
+    L1          NUMBER;
+    L2          NUMBER;
+    L3          NUMBER;
+    L4          NUMBER;
+    INDEX1      NUMBER;
+    INDEX2      NUMBER;
+    COENUM      NUMBER;
+  begin
+  
+    if INDATE is null then
+      TEMPDATE := to_char(sysdate, 'yyyy/mm/dd');
+    else
+      TEMPDATE := INDATE;
+    end if;
+  
+    VRESULT    := ANALYSIS_BASIC_DATA(0, 1, TEMPDATE);
+    L1         := instr(VRESULT, ',', 1, 1);
+    L2         := instr(VRESULT, ',', 1, 2);
+    L3         := instr(VRESULT, ',', 1, 3);
+    MARPERCENT := substr(VRESULT, L1 + 1, L2 - L1 - 1);
+    MARRATE    := substr(VRESULT, L2 + 1, L3 - L2 - 1);
+    MARAVG     := substr(VRESULT, L3 + 1);
+  
+    VRESULT     := ANALYSIS_BASIC_DATA(1, 1, TEMPDATE);
+    L1          := instr(VRESULT, ',', 1, 1);
+    L2          := instr(VRESULT, ',', 1, 2);
+    L3          := instr(VRESULT, ',', 1, 3);
+    L4          := instr(VRESULT, ',', 1, 4);
+    INDUSTRYMAX := substr(VRESULT, L1 + 1, L2 - L1 - 1);
+    FUNPERCENT  := substr(VRESULT, L2 + 1, L3 - L2 - 1);
+    FUNRATE     := substr(VRESULT, L3 + 1, L4 - L3 - 1);
+    FUNAVG      := substr(VRESULT, L4 + 1);
+  
+    VRESULT     := ANALYSIS_BASIC_DATA(1, 0, TEMPDATE);
+    L1          := instr(VRESULT, ',', 1, 1);
+    L2          := instr(VRESULT, ',', 1, 2);
+    INDUSTRYMIN := substr(VRESULT, L1 + 1, L2 - L1 - 1);
+  
+    INDEX1 := (MARPERCENT + FUNPERCENT) / 2;
+    INDEX2 := (MARRATE + FUNRATE) / 2;
+    /*根據各個指標係數進行評級*/
+    if INDEX1 <= 20 then
+      if INDEX2 <= 20 then
+        MSG := '極差';
+      else
+        MSG := '差';
+      end if;
+    elsif INDEX1 <= 40 then
+      if INDEX2 <= 20 then
+        MSG := '極差';
+      elsif INDEX2 <= 40 then
+        MSG := '差';
+      else
+        MSG := '一般';
+      end if;
+    elsif INDEX1 <= 60 then
+      if INDEX2 <= 20 then
+        MSG := '極差';
+      elsif INDEX2 <= 40 then
+        MSG := '差';
+      elsif INDEX2 <= 60 then
+        MSG := '一般';
+      else
+        MSG := '良好';
+      end if;
+    elsif INDEX1 <= 90 then
+      if INDEX2 <= 20 then
+        MSG := '極差';
+      elsif INDEX2 <= 40 then
+        MSG := '差';
+      elsif INDEX2 <= 60 then
+        MSG := '一般';
+      elsif INDEX2 <= 90 then
+        MSG := '良好';
+      else
+        MSG := '優秀';
+      end if;
+    else
+      if INDEX2 <= 20 then
+        MSG := '極差';
+      elsif INDEX2 <= 40 then
+        MSG := '差';
+      elsif INDEX2 <= 60 then
+        MSG := '一般';
+      elsif INDEX2 <= 90 then
+        MSG := '良好';
+      else
+        MSG := '優秀';
+      end if;
+    end if;
+  
+    if MSG = '極差' or MSG = '優秀' then
+      if MARAVG <= 0.5 then
+        if FUNAVG <= 2 then
+          OPERATION := 'Move';
+        else
+          OPERATION := 'Danger';
+        end if;
+      else
+        if FUNAVG >= 2 then
+          OPERATION := 'Move';
+        else
+          OPERATION := 'Danger';
+        end if;
+      end if;
+    
+    else
+      OPERATION := 'Danger';
+    end if;
+    COENUM  := round((MARPERCENT + MARRATE + FUNRATE + FUNRATE) / 4);
+    VRESULT := MSG || ',' || COENUM || ',' || INDUSTRYMAX || ',' ||
+               INDUSTRYMIN || ',' || OPERATION;
+    return VRESULT;
+  exception
+    when others then
+      return substr(SQLERRM, 0, 200);
+  end;
+
+end PKG_ENGINECORE_CENTER;

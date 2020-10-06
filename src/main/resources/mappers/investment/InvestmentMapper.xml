@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace ="com.jxhspace.investment.analysis.dao.InvestmentDAO">
+
+<!-- Query History Investment Data -->
+<select id="queryHistory" resultType="InvestentRecordsEntity">
+	select t.*
+	  from (select distinct t.*,
+	                        row_number() over(order by t.amount, t.platform, t.trasdate, t.id) seq
+	          from investment_records t
+	         where 1 = 1
+	         <if test="fundcode !=null and fundcode !=''">
+	         	and t.fundcode = #{fundcode}
+	         </if>
+	         <if test="platform !=null and platform !=''">
+	         	and t.platform = #{platform}
+	         </if>
+	         <if test="otype !=null and otype !=''">
+	         	and t.otype = #{otype}
+	         </if>
+	         <if test="operator !=null and operator !=''">
+	         	and t.operator = #{operator}
+	         </if>
+	         <if test="startRow !=null and startRow !='' and endRow !=null and endRow !=''">
+	         <if test="sdate !=null and sdate !='' and edate !=null and edate !=''">
+	         	and t.trasdate between to_date(#{sdate}, 'yyyy/mm/dd hh24:mi:ss') and
+                to_date(#{edate}, 'yyyy/mm/dd hh24:mi:ss')
+	         </if>	         	
+	         </if>
+	  ) t where 1=1
+<if test="startRow !=0 and endRow !=0">
+	and t.seq between #{startRow} and #{endRow}
+</if>
+</select>
+
+<!-- DealDataInsert -->
+<insert id="DealDataInsert" parameterType="InvestentRecordsEntity">
+	insert into investment_records t
+	(t.trasdate,t.operator,t.otype,t.fundcode,t.amount,t.platform,t.events)
+	select to_date(#{trasdate},'yyyy/mm/dd hh24:mi:ss'),
+	         #{operator,jdbcType=VARCHAR},
+	         #{otype},
+	         #{fundcode},
+	         #{amount},
+	         #{platform},
+	         #{events,jdbcType=VARCHAR}
+	         from dual
+	         where not exists
+	         (
+	         select * from investment_records 
+	         where trasdate=to_date(#{trasdate},'yyyy/mm/dd hh24:mi:ss')
+	         and fundcode=#{fundcode}
+	         )
+</insert>
+
+<!-- DealDataUpdate -->
+<update id="DealDataUpdate" parameterType="InvestentRecordsEntity">
+	update investment_records t
+	set t.otype=#{otype,jdbcType=VARCHAR},
+	     t.amount=#{amount,jdbcType=VARCHAR},
+	     t.platform=#{platform,jdbcType=VARCHAR},
+	     t.operator=#{operator,jdbcType=VARCHAR},
+	     t.events=#{events,jdbcType=VARCHAR},
+	     t.updatedate=sysdate
+	where t.id=#{id}
+</update>
+
+<!-- DealDataDel -->
+<delete id="DealDataDel" parameterType="String">
+	delete from investment_records t
+	where t.id in
+	<foreach collection="idList" item="it" open="(" separator="," close=")">
+		#{it}
+	</foreach>
+</delete>
+
+
+
+<!-- Insert Fundbaseinfo data -->
+<insert id ="insertFundInfo" parameterType="com.jxhspace.investment.analysis.entity.FundBaseinfoEntity">
+	insert into fundbaseinfo t
+	select #{fundcode},
+	         #{name,jdbcType=VARCHAR},
+	         #{manager},
+	         #{escrow},
+	         to_date(#{founddate},'yyyy/mm/dd'),
+	         #{ftype,jdbcType=VARCHAR},
+	         #{industry,jdbcType=VARCHAR},
+	         #{assetsize},
+	         #{market,jdbcType=VARCHAR},
+	         #{flevel,jdbcType=VARCHAR},
+	         '1',
+	         sysdate,
+	         'sys',
+	         #{buyrate}
+	from daul
+	where not exists
+	(select * from fundbaseinfo where fundcode=#{fundcode})
+</insert>
+
+<!-- Update Fundbaseinfo data -->
+<update id ="updateFundInfo" parameterType="com.jxhspace.investment.analysis.entity.FundBaseinfoEntity">
+	update fundbaseinfo t set
+	       t.name=#{name,jdbcType=VARCHAR},
+	       t.manager=#{manager,jdbcType=VARCHAR},
+	       t.escrow=#{escrow,jdbcType=VARCHAR},
+	       t.founddate=to_date(#{founddate},'yyyy/mm/dd'),
+	       t.ftype=#{ftype,jdbcType=VARCHAR},
+	       t.industry=#{industry,jdbcType=VARCHAR},
+	       t.assetsize=#{assetsize,jdbcType=VARCHAR},
+	       t.market=#{market,jdbcType=VARCHAR},
+	       t.flevel=#{flevel,jdbcType=VARCHAR},
+	       t.buyrate=#{buyrate,jdbcType=VARCHAR}
+	where t.fundcode=#{fundcode}
+</update>
+
+<!-- Delete Fundbaseinfo data -->
+<update id ="deleteFundInfo" parameterType="com.jxhspace.investment.analysis.entity.FundBaseinfoEntity">
+	update fundbaseinfo t set t.isvalid='0'
+	where t.fundcode=#{fundcode}
+</update>
+
+<!-- Query Fundbaseinfo data -->
+<select id ="queryFundInfo" resultType="com.jxhspace.investment.analysis.entity.FundBaseinfoEntity">
+	select t.* from FUNDBASEINFO t where 1=1
+	<if test ="fundcode !=null and fundcode !=''">
+		and t.fundcode=#{fundcode}
+	</if>
+	<if test ="market !=null and market !=''">
+		and t.market=#{market}
+	</if>
+	<if test ="ftype !=null and ftype !=''">
+		and t.ftype=#{ftype}
+	</if>
+	<if test ="manager !=null and manager !=''">
+		and t.manager=#{manager}
+	</if>
+	order by t.founddate desc,t.ftype,t.market,t.fundcode
+</select>
+
+
+
+
+<!-- Update FundPrice data -->
+<update id ="updateFundPrice" parameterType="com.jxhspace.investment.analysis.entity.FundpriceRecordsEntity">
+	update fundprice_records t set
+	       t.frank=#{frank,jdbcType=VARCHAR},
+	       t.isover=#{isover,jdbcType=VARCHAR},
+	       t.mposition=#{mposition,jdbcType=VARCHAR},
+	       t.manager=#{manager,jdbcType=VARCHAR},
+	       t.memo=#{memo,jdbcType=VARCHAR},
+	       t.grownrate=#{grownrate,jdbcType=VARCHAR},
+	       t.updatedate=sysdate
+	where t.fundcode=#{fundcode} and t.rdate=to_date(#{rdate},'yyyy/mm/dd')
+</update>
+
+<!-- Query FundPrice data -->
+<select id ="queryFundPrice" resultType="com.jxhspace.investment.analysis.entity.FundpriceRecordsEntity">
+	select t.* from fundprice_records t where 1=1
+	<if test ="fundcode !=null and fundcode !=''">
+		and t.fundcode=#{fundcode}
+	</if>
+	<if test ="sdate !=null and sdate !='' and edate !=null and edate !=''">
+		and t.rdate between to_date(#{sdate},'yyyy/mm/dd hh24:mi:ss') and to_date(#{edate},'yyyy/mm/dd hh24:mi:ss')
+	</if>
+</select>
+
+
+
+
+<!-- Insert Manager data -->
+<insert id ="insertManager" parameterType="com.jxhspace.investment.analysis.entity.ManagerinfoEntity">
+	insert into managerinfo t
+	select #{manager},
+	         #{country,jdbcType=VARCHAR},
+	         #{nation,jdbcType=VARCHAR},
+	         #{sex,jdbcType=VARCHAR},
+	         to_date(#{borndate},'yyyy/mm/dd'),
+	         #{education,jdbcType=VARCHAR},
+	         to_date(#{workdate},'yyyy/mm/dd'),
+	         #{memo,jdbcType=VARCHAR},
+	         sysdate,
+	         'sys',
+	         #{amount,jdbcType=VARCHAR},
+	         #{returnrate,jdbcType=VARCHAR}
+	from daul
+	where not exists
+	(select * from managerinfo t where t.manager=#{manager})
+</insert>
+
+<!-- Update Manager data -->
+<update id ="updateManager" parameterType="com.jxhspace.investment.analysis.entity.ManagerinfoEntity">
+	update managerinfo t set 
+	       t.country=#{country,jdbcType=VARCHAR},
+	       t.nation=#{nation,jdbcType=VARCHAR},
+	       t.sex=#{sex,jdbcType=VARCHAR},
+	       t.education=#{education,jdbcType=VARCHAR},
+	       t.memo=#{memo,jdbcType=VARCHAR},
+	       t.amount=#{amount,jdbcType=VARCHAR},
+	       t.returnrate=#{returnrate,jdbcType=VARCHAR}
+	where t.manager=#{manager
+</update>
+
+<!-- Delete Manager data -->
+<delete id ="deleteManager" parameterType="com.jxhspace.investment.analysis.entity.ManagerinfoEntity">
+	delete from managerinfo t
+	where t.manager=#{manager}
+</delete>
+
+<!-- Query Manager data -->
+<select id ="queryManager" resultType="com.jxhspace.investment.analysis.entity.ManagerinfoEntity">
+	select t.* from managerinfo t
+	where 1=1
+<if test ="manager !=null and manager !=''">
+	and t.manager=#{manager}
+</if>	
+<if test ="country !=null and country !=''">
+	and t.country=#{country}
+</if>	
+<if test ="nation !=null and nation !=''">
+	and t.nation=#{nation}
+</if>	
+<if test ="education !=null and education !=''">
+	and t.education=#{education}
+</if>	
+order by t.workdate,t.amount,t.returnrate
+</select>
+
+</mapper>
